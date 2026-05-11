@@ -1932,7 +1932,8 @@ function _drawSRText(sr) {
 
 // WEAPON RENDERING HELPER
 // pullback: 0-5 (windup pull), isDash: boolean (blade extends)
-function drawWeaponHeld(c, angle, weapon, pullback, isDash, scale = 1, sideFlip = 1) {
+// drawMode: 0=normal, 1=arrow-as-blade (Yumi melee/dash mode)
+function drawWeaponHeld(c, angle, weapon, pullback, isDash, scale = 1, sideFlip = 1, drawMode = 0) {
     c.save();
     c.rotate(angle);
     // Apply foreshortening along blade axis; sideFlip mirrors for Kama hook direction
@@ -2172,30 +2173,70 @@ function drawWeaponHeld(c, angle, weapon, pullback, isDash, scale = 1, sideFlip 
         }
 
         case 'Yumi': {
-            // Asymmetric longbow, longer below the grip than above
-            // Bow is held at arm's reach, starting at a forward offset
-            const ymOffset = pb + 14; // push bow out past the player radius
-            const ymH  = isDash ? 64 : 56;
-            const ymBot = ymH * 0.65;
-            const ymTop = ymH * 0.35;
-            const ymBow = isDash ? 12 : 10;
-            // Lower limb (longer)
-            c.beginPath();
-            c.moveTo(ymOffset, ymBot);
-            c.quadraticCurveTo(ymOffset + ymBow, 0, ymOffset, -ymTop);
-            c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, 0.85)`;
-            c.lineWidth   = 3.2;
-            c.stroke();
-            // Bowstring
-            c.beginPath();
-            c.moveTo(ymOffset, ymBot);
-            c.lineTo(ymOffset, -ymTop);
-            c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, 0.50)`;
-            c.lineWidth   = 0.8;
-            c.stroke();
-            // Arrow nocked on string
-            if (!isDash) {
-                const arrowTip = ymOffset + ymBow + 18; // tip extends forward past the bow
+            if (isDash || drawMode === 1) {
+                // Arrow-as-blade mode: hold the arrow like a short stabbing weapon
+                const arrowLen = isDash ? 52 : 44;
+                // Shaft
+                c.beginPath();
+                c.moveTo(pb - 10, 0);
+                c.lineTo(pb + arrowLen * 0.72, 0);
+                c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, 0.85)`;
+                c.lineWidth   = 1.8;
+                c.stroke();
+                // Arrowhead (larger for close-combat presence)
+                c.beginPath();
+                c.moveTo(pb + arrowLen * 0.72, 0);
+                c.lineTo(pb + arrowLen * 0.72 - 7, -4.5);
+                c.lineTo(pb + arrowLen * 0.72 - 7,  4.5);
+                c.closePath();
+                c.fillStyle = `rgba(${ri}, ${gi}, ${bi}, 0.88)`;
+                c.fill();
+                c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, 0.70)`;
+                c.lineWidth   = 0.8;
+                c.stroke();
+                // Fletching at tail
+                c.beginPath();
+                c.moveTo(pb - 6, 0);
+                c.lineTo(pb - 14, -5);
+                c.lineWidth   = 1.0;
+                c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, 0.48)`;
+                c.stroke();
+                c.beginPath();
+                c.moveTo(pb - 6, 0);
+                c.lineTo(pb - 14,  5);
+                c.stroke();
+                // Grip wrap (hand position indicator)
+                c.beginPath();
+                c.moveTo(pb + 4, -3.2);
+                c.lineTo(pb + 10, -3.2);
+                c.lineTo(pb + 10,  3.2);
+                c.lineTo(pb + 4,   3.2);
+                c.closePath();
+                c.fillStyle = `rgba(${ri}, ${gi}, ${bi}, 0.14)`;
+                c.fill();
+            } else {
+                // Normal bow mode (shot/aim)
+                const ymOffset = pb + 14;
+                const ymH   = 56;
+                const ymBot = ymH * 0.65;
+                const ymTop = ymH * 0.35;
+                const ymBow = 10;
+                // Lower limb (longer)
+                c.beginPath();
+                c.moveTo(ymOffset, ymBot);
+                c.quadraticCurveTo(ymOffset + ymBow, 0, ymOffset, -ymTop);
+                c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, 0.85)`;
+                c.lineWidth   = 3.2;
+                c.stroke();
+                // Bowstring
+                c.beginPath();
+                c.moveTo(ymOffset, ymBot);
+                c.lineTo(ymOffset, -ymTop);
+                c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, 0.50)`;
+                c.lineWidth   = 0.8;
+                c.stroke();
+                // Arrow nocked on string
+                const arrowTip = ymOffset + ymBow + 18;
                 c.beginPath();
                 c.moveTo(ymOffset - 8, 0);
                 c.lineTo(arrowTip, 0);
@@ -2727,9 +2768,9 @@ class Player {
             Odachi:   [10, 7, 14][c] ?? 10, // 1: raise, 2: fast return, 3: full overhead
             Kanabo:   [11, 7, 16][c] ?? 11, // 1: side raise, 2: quick reverse, 3: overhead
             Kama:     [5, 4, 9][c]  ?? 5,   // 1: hook chamber, 2: reverse set, 3: spin windup
-            Yumi:     [8, 7, 12][c] ?? 8,   // 1: draw, 2: second draw, 3: triple draw
+            Yumi:     [7, 6, 10][c] ?? 7,   // 1: draw-aim, 2: arrow-windup, 3: double-draw
             Sasumata: [5, 7, 11][c] ?? 5,   // 1: pin thrust chamber, 2: hook-yank reach, 3: shaft-blow raise
-            Fukiya:   [3, 3, 5][c]  ?? 3,   // 1: quick breath, 2: second breath, 3: deep breath
+            Fukiya:   [5, 3, 10][c]  ?? 5,  // 1: bonk raise, 2: breath+blow, 3: deep-breath charge
         }[this.weapon.name] ?? 4;
     }
     getLightSlashFrames() {
@@ -2740,9 +2781,9 @@ class Player {
             Odachi:   [13, 10, 18][c] ?? 13,
             Kanabo:   [12, 9,  17][c] ?? 12,
             Kama:     [8,  8,  14][c] ?? 8,
-            Yumi:     [5,  5,  6][c]  ?? 5,
+            Yumi:     [5,  9,  5][c]  ?? 5,
             Sasumata: [7,  13, 15][c] ?? 7,
-            Fukiya:   [4,  4,  5][c]  ?? 4,
+            Fukiya:   [9,  5,  5][c]  ?? 5,
         }[this.weapon.name] ?? 10;
     }
     getLightRecover() {
@@ -2753,9 +2794,9 @@ class Player {
             Odachi:   [10, 8, 13][c] ?? 10,
             Kanabo:   [12, 9, 16][c] ?? 12,
             Kama:     [6,  5, 10][c] ?? 6,
-            Yumi:     [8,  7, 14][c] ?? 8,
+            Yumi:     [8,  6, 12][c] ?? 8,
             Sasumata: [6,  9, 12][c] ?? 6,
-            Fukiya:   [5,  5,  8][c] ?? 5,
+            Fukiya:   [7,  5,  9][c] ?? 5,
         }[this.weapon.name] ?? 5;
         return base;
     }
@@ -2924,21 +2965,23 @@ class Player {
             }
 
             case 'Yumi': {
-                // Bow stays relatively level, the action is the draw/release, not swinging
                 if (c === 0) {
-                    // Draw: bow rises to aim, string pulls back, release snaps forward
-                    if (this.state === 'LIGHT_WINDUP') return lerpFrom(fa - 0.18);
-                    if (this.state === 'LIGHT_SLASH')  return fa - 0.18 + progress * 0.18;
+                    // Hit 1: Standing shot — bow stays level, slight aim-up
+                    if (this.state === 'LIGHT_WINDUP') return lerpFrom(fa - 0.16);
+                    if (this.state === 'LIGHT_SLASH')  return fa - 0.16 + progress * 0.16;
                     return fa;
                 } else if (c === 1) {
-                    // Second draw: slight left-right correction
-                    if (this.state === 'LIGHT_WINDUP') return lerpFrom(fa + 0.10);
-                    if (this.state === 'LIGHT_SLASH')  return fa + 0.10 - progress * 0.10;
-                    return fa;
+                    // Hit 2: Arrow melee slash — hold arrow like a blade, full swing arc
+                    if (this.state === 'LIGHT_WINDUP') return lerpFrom(fa + side * (Math.PI / 2.0));
+                    if (this.state === 'LIGHT_SLASH') {
+                        const e = 1 - Math.pow(1 - progress, 2.6);
+                        return fa + side * (Math.PI / 2.0) - e * side * (Math.PI / 1.35);
+                    }
+                    return fa - side * (Math.PI / 4.5);
                 } else {
-                    // Triple draw: deeper pull, more tension, small vertical dip on release
-                    if (this.state === 'LIGHT_WINDUP') return lerpFrom(fa - 0.22);
-                    if (this.state === 'LIGHT_SLASH')  return fa - 0.22 + progress * 0.22;
+                    // Hit 3: Double shot — slight pull back, release both arrows
+                    if (this.state === 'LIGHT_WINDUP') return lerpFrom(fa - 0.20);
+                    if (this.state === 'LIGHT_SLASH')  return fa - 0.20 + progress * 0.20;
                     return fa;
                 }
             }
@@ -2976,12 +3019,29 @@ class Player {
             }
 
             case 'Fukiya': {
-                // Barely moves, breath technique, not arm swinging.
-                // Stays essentially level, pointed at target, all three shots.
-                const steadiness = 0.04; // tiny deviation max
-                if (this.state === 'LIGHT_WINDUP') return lerpFrom(fa);
-                if (this.state === 'LIGHT_SLASH')  return fa + Math.sin(progress * Math.PI) * steadiness;
-                return fa;
+                if (c === 0) {
+                    // Hit 1: Tube bonk — overhead swipe down onto the enemy
+                    if (this.state === 'LIGHT_WINDUP') return lerpFrom(fa - side * (Math.PI / 1.6));
+                    if (this.state === 'LIGHT_SLASH') {
+                        const e = 1 - Math.pow(1 - progress, 2.4);
+                        return fa - side * (Math.PI / 1.6) + e * side * (Math.PI / 1.1);
+                    }
+                    return fa + side * (Math.PI / 5.5);
+                } else if (c === 1) {
+                    // Hit 2: Normal blowdart — steady aim, barely moves
+                    const steadiness = 0.04;
+                    if (this.state === 'LIGHT_WINDUP') return lerpFrom(fa);
+                    if (this.state === 'LIGHT_SLASH')  return fa + Math.sin(progress * Math.PI) * steadiness;
+                    return fa;
+                } else {
+                    // Hit 3: Deep breath charge — pull back dramatically, then firm lunge forward
+                    if (this.state === 'LIGHT_WINDUP') return lerpFrom(fa - 0.30);
+                    if (this.state === 'LIGHT_SLASH') {
+                        const e = 1 - Math.pow(1 - progress, 3.5);
+                        return fa - 0.30 + e * 0.32;
+                    }
+                    return fa + 0.02;
+                }
             }
 
             default:
@@ -3142,28 +3202,29 @@ class Player {
 
             case 'Yumi': {
                 if (c === 0) {
-                    // Draw: pull arm back steadily, release snaps forward
-                    if (this.state === 'LIGHT_WINDUP') return lerpOff(-8, side * 3);
+                    // Standing shot: arm steady, slight pull back at windup
+                    if (this.state === 'LIGHT_WINDUP') return lerpOff(-6, side * 2);
                     if (this.state === 'LIGHT_SLASH') {
                         const e = 1 - Math.pow(1 - progress, 1.5);
-                        return toXY(-8 + e * 6, side * 3 - e * side * 2);
+                        return toXY(-6 + e * 4, side * 2 - e * side * 1);
                     }
                     return toXY(-3, side * 1);
                 } else if (c === 1) {
-                    // Second draw: slightly deeper pull
-                    if (this.state === 'LIGHT_WINDUP') return lerpOff(-10, side * 2);
+                    // Arrow melee slash: full arm-swing motion
+                    if (this.state === 'LIGHT_WINDUP') return lerpOff(-5, side * 13);
+                    if (this.state === 'LIGHT_SLASH') {
+                        const e = 1 - Math.pow(1 - progress, 2.5);
+                        return toXY(-5 + e * 14, side * 13 - e * side * 21);
+                    }
+                    return toXY(8, -side * 7);
+                } else {
+                    // Double shot: very similar to single shot but marginally wider stance
+                    if (this.state === 'LIGHT_WINDUP') return lerpOff(-8, side * 2);
                     if (this.state === 'LIGHT_SLASH') {
                         const e = 1 - Math.pow(1 - progress, 1.5);
-                        return toXY(-10 + e * 7, side * 2 - e * side * 1);
+                        return toXY(-8 + e * 5, side * 2 - e * side * 1);
                     }
                     return toXY(-4, side * 1);
-                } else {
-                    // Triple draw: firm planted stance
-                    if (this.state === 'LIGHT_WINDUP') return lerpOff(-12, 0);
-                    if (this.state === 'LIGHT_SLASH') {
-                        return toXY(-12 + progress * 9, 0);
-                    }
-                    return toXY(-4, 0);
                 }
             }
 
@@ -3197,21 +3258,27 @@ class Player {
             }
 
             case 'Fukiya': {
-                // Blowgun: minimal arm movement, all in the breath
                 if (c === 0) {
+                    // Bonk: arm lifts up-and-side, then swings across
+                    if (this.state === 'LIGHT_WINDUP') return lerpOff(-8, side * 12);
+                    if (this.state === 'LIGHT_SLASH') {
+                        const e = 1 - Math.pow(1 - progress, 2.4);
+                        return toXY(-8 + e * 17, side * 12 - e * side * 19);
+                    }
+                    return toXY(7, -side * 5);
+                } else if (c === 1) {
+                    // Normal dart: steady blowgun aim, tiny lunge
                     if (this.state === 'LIGHT_WINDUP') return lerpOff(-2, 0);
                     if (this.state === 'LIGHT_SLASH') return toXY(-2 + progress * 5, 0);
                     return toXY(3, 0);
-                } else if (c === 1) {
-                    if (this.state === 'LIGHT_WINDUP') return lerpOff(-3, side * 1.5);
-                    if (this.state === 'LIGHT_SLASH') {
-                        return toXY(-3 + progress * 6, side * 1.5 - progress * side * 1.5);
-                    }
-                    return toXY(3, 0);
                 } else {
-                    if (this.state === 'LIGHT_WINDUP') return lerpOff(-4, 0);
-                    if (this.state === 'LIGHT_SLASH') return toXY(-4 + progress * 7, 0);
-                    return toXY(3, 0);
+                    // Deep breath: pull back more dramatically, firm planted lunge
+                    if (this.state === 'LIGHT_WINDUP') return lerpOff(-10, 0);
+                    if (this.state === 'LIGHT_SLASH') {
+                        const e = 1 - Math.pow(1 - progress, 3.0);
+                        return toXY(-10 + e * 14, 0);
+                    }
+                    return toXY(4, 0);
                 }
             }
 
@@ -3327,28 +3394,27 @@ class Player {
             }
 
             case 'Yumi': {
-                // Scale foreshortens as the bow is drawn (arm pulls back toward camera)
                 if (c === 0) {
-                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.72);
+                    // Standing shot: slight foreshorten at draw
+                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.78);
                     if (this.state === 'LIGHT_SLASH') {
                         const e = 1 - Math.pow(1 - progress, 2.0);
-                        return 0.72 + e * 0.30;
+                        return 0.78 + e * 0.22;
                     }
-                    return 0.95;
+                    return 0.96;
                 } else if (c === 1) {
-                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.68);
-                    if (this.state === 'LIGHT_SLASH') {
-                        const e = 1 - Math.pow(1 - progress, 2.0);
-                        return 0.68 + e * 0.32;
-                    }
-                    return 0.95;
+                    // Arrow slash: stays at normal scale (it's a side swing, not foreshortened)
+                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.96);
+                    if (this.state === 'LIGHT_SLASH') return 0.97 + Math.sin(progress * Math.PI) * 0.08;
+                    return 0.94;
                 } else {
-                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.65);
+                    // Double shot: slight foreshorten
+                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.75);
                     if (this.state === 'LIGHT_SLASH') {
                         const e = 1 - Math.pow(1 - progress, 2.0);
-                        return 0.65 + e * 0.36;
+                        return 0.75 + e * 0.25;
                     }
-                    return 0.98;
+                    return 0.96;
                 }
             }
 
@@ -3379,16 +3445,28 @@ class Player {
             }
 
             case 'Fukiya': {
-                // Barely changes, blowgun technique is stillness
                 if (c === 0) {
-                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.95);
-                    return 0.97;
-                } else if (c === 1) {
-                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.93);
-                    return 0.96;
-                } else {
-                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.90);
+                    // Bonk: full scale for the arm swing
+                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.96);
+                    if (this.state === 'LIGHT_SLASH') return 0.97 + Math.sin(progress * Math.PI) * 0.06;
                     return 0.94;
+                } else if (c === 1) {
+                    // Normal dart: tiny foreshorten (tube points slightly at camera)
+                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.66);
+                    if (this.state === 'LIGHT_SLASH') {
+                        const e = 1 - Math.pow(1 - progress, 2.0);
+                        return 0.66 + e * 0.32;
+                    }
+                    return 0.92;
+                } else {
+                    // Deep breath: extreme foreshorten during windup (tube aimed at screen),
+                    // then snaps back to full as dart fires forward
+                    if (this.state === 'LIGHT_WINDUP') return lerpScl(0.38);
+                    if (this.state === 'LIGHT_SLASH') {
+                        const e = 1 - Math.pow(1 - progress, 3.5);
+                        return 0.38 + e * 0.64;
+                    }
+                    return 0.96;
                 }
             }
 
@@ -3525,23 +3603,22 @@ class Player {
 
             case 'Yumi': {
                 if (c === 0) {
-                    // Hit 1: Haya-ya, single precision arrow
+                    // Hit 1: Standing shot — single precision arrow
                     slashes.push(new YumiArrowFlight(this.x, this.y, this.facingAngle,
                         this.weapon.damage * 1.2, this.weapon.knockback));
                 } else if (c === 1) {
-                    // Hit 2: Futamatsu-ya, twin arrows in tight V
-                    const spread = 0.11;
-                    slashes.push(new YumiArrowFlight(this.x, this.y, this.facingAngle - spread,
-                        this.weapon.damage * 0.90, this.weapon.knockback * 0.80));
-                    slashes.push(new YumiArrowFlight(this.x, this.y, this.facingAngle + spread,
-                        this.weapon.damage * 0.90, this.weapon.knockback * 0.80));
+                    // Hit 2: Arrow melee slash — hold arrow like a blade, close-range sweep
+                    slashes.push(new YumiArrowSlash(this.x, this.y, this.facingAngle, this.slashStartSide));
+                    applyDamageCustom(this.x, this.y, this.facingAngle,
+                        this.weapon.range * 0.42, Math.PI / 1.9,
+                        this.weapon.damage * 0.95, this.weapon.knockback * 0.75);
                 } else {
-                    // Hit 3: Sansen-ya, three arrows in a fan
-                    const spread = 0.20;
-                    for (let i = -1; i <= 1; i++) {
-                        slashes.push(new YumiArrowFlight(this.x, this.y, this.facingAngle + i * spread,
-                            this.weapon.damage * 0.80, this.weapon.knockback * 0.75));
-                    }
+                    // Hit 3: Standing shot — two arrows in a tight spread
+                    const spread = 0.10;
+                    slashes.push(new YumiArrowFlight(this.x, this.y, this.facingAngle - spread,
+                        this.weapon.damage * 0.95, this.weapon.knockback * 0.85));
+                    slashes.push(new YumiArrowFlight(this.x, this.y, this.facingAngle + spread,
+                        this.weapon.damage * 0.95, this.weapon.knockback * 0.85));
                     cameraShake = Math.max(cameraShake, 2);
                 }
                 break;
@@ -3580,21 +3657,20 @@ class Player {
 
             case 'Fukiya': {
                 if (c === 0) {
-                    // Hit 1: Single dart, precise, silent
-                    slashes.push(new FukiyaDart(this.x, this.y, this.facingAngle,
-                        this.weapon.damage, this.weapon.knockback));
+                    // Hit 1: Tube bonk — smack enemy with the blowgun, close-range melee
+                    slashes.push(new FukiyaBonk(this.x, this.y, this.facingAngle, this.slashStartSide));
+                    applyDamageCustom(this.x, this.y, this.facingAngle,
+                        this.weapon.range * 0.35, Math.PI / 2.0,
+                        this.weapon.damage * 0.75, this.weapon.knockback * 0.60);
                 } else if (c === 1) {
-                    // Hit 2: Quick double-puff, two darts in rapid succession, slight spread
-                    slashes.push(new FukiyaDart(this.x, this.y, this.facingAngle - 0.06,
-                        this.weapon.damage * 0.90, this.weapon.knockback));
-                    slashes.push(new FukiyaDart(this.x, this.y, this.facingAngle + 0.06,
-                        this.weapon.damage * 0.90, this.weapon.knockback));
+                    // Hit 2: Normal blowdart — steady aim, single dart
+                    slashes.push(new FukiyaDart(this.x, this.y, this.facingAngle,
+                        this.weapon.damage * 0.95, this.weapon.knockback));
                 } else {
-                    // Hit 3: Hayate-fukiya, three darts in fan, deepest breath
-                    for (let i = -1; i <= 1; i++) {
-                        slashes.push(new FukiyaDart(this.x, this.y, this.facingAngle + i * 0.14,
-                            this.weapon.damage * 0.85, this.weapon.knockback * 0.90));
-                    }
+                    // Hit 3: Deep-breath supercharged dart — massive damage, much faster
+                    slashes.push(new FukiyaChargedDart(this.x, this.y, this.facingAngle,
+                        this.weapon.damage * 2.8, this.weapon.knockback * 1.8));
+                    cameraShake = Math.max(cameraShake, 3);
                 }
                 break;
             }
@@ -3830,12 +3906,12 @@ class Player {
             }
 
             case 'Yumi': {
-                // Hashiri-ya, sprint with arrow-tip as blade, loose a heavy arrow on exit
+                // Yaburi-tsuki: sprint with arrow gripped as a blade, slash enemies on exit
                 this.x += Math.cos(this.dashAngle) * this.dashSpd;
                 this.y += Math.sin(this.dashAngle) * this.dashSpd;
                 createTrail(this.x, this.y, this.radius * 0.55, true, this.dashAngle);
 
-                // Arrow-tip stab: pierce any enemy in a thin forward corridor
+                // Arrow-blade stab: pierce any enemy in a thin forward corridor
                 for (let i = enemies.length - 1; i >= 0; i--) {
                     const e = enemies[i];
                     if (this.dashedEnemies.has(e)) continue;
@@ -3843,9 +3919,9 @@ class Player {
                     const dy        = e.y - this.y;
                     const alongFwd  = dx * Math.cos(this.dashAngle) + dy * Math.sin(this.dashAngle);
                     const alongPerp = Math.abs(-dx * Math.sin(this.dashAngle) + dy * Math.cos(this.dashAngle));
-                    if (alongFwd >= -8 && alongFwd <= 28 && alongPerp <= 18) {
+                    if (alongFwd >= -8 && alongFwd <= 28 && alongPerp <= 20) {
                         this.dashedEnemies.add(e);
-                        e.hit(this.weapon.damage * 1.2, this.dashAngle, this.weapon.knockback * 0.8);
+                        e.hit(this.weapon.damage * 1.1, this.dashAngle, this.weapon.knockback * 0.9);
                         spawnParticles(e.x, e.y, 'ink-red', 7);
                         if (e.hp <= 0) {
                             spawnParticles(e.x, e.y, 'ink-red', 14);
@@ -3858,9 +3934,11 @@ class Player {
 
                 this.stateTimer--;
                 if (this.stateTimer <= 0) {
-                    // Skid to a stop and loose a heavy arrow forward
-                    slashes.push(new YumiArrowFlight(this.x, this.y, this.dashAngle,
-                        this.weapon.damage * 2.0, this.weapon.knockback * 1.6));
+                    // Skid to a stop — close-range slash with arrow, no projectile
+                    slashes.push(new YumiArrowSlash(this.x, this.y, this.dashAngle, 1));
+                    applyDamageCustom(this.x, this.y, this.dashAngle,
+                        this.weapon.range * 0.38, Math.PI / 1.8,
+                        this.weapon.damage * 1.6, this.weapon.knockback * 1.2);
                     cameraShake = Math.max(cameraShake, 3);
                     this.state      = 'DASH_RECOVER';
                     this.stateTimer = this.weapon.dashRecover;
@@ -3875,9 +3953,9 @@ class Player {
                 const progress = 1 - this.stateTimer / this.stateMaxTimer;
                 const sweepHalf = Math.PI / 1.75;
                 // Current sweep head angle, rotates from -sweepHalf to +sweepHalf
+                this.x += Math.cos(this.dashAngle) * this.dashSpd;
+                this.y += Math.sin(this.dashAngle) * this.dashSpd;
                 this.oshiAngle = this.dashAngle - sweepHalf + progress * sweepHalf * 2;
-
-                // Spawn a fork-trail every other frame
                 if (this.stateTimer % 2 === 0) {
                     slashes.push(new SasumataOshiTrail(this.x, this.y, this.oshiAngle, progress));
                 }
@@ -4075,7 +4153,11 @@ class Player {
             ? ((['LIGHT_WINDUP','LIGHT_SLASH','LIGHT_RECOVER','LIGHT_WAIT','LIGHT_RETURN'].includes(this.state))
                 ? this.slashStartSide : this.weaponSide)
             : 1;
-        drawWeaponHeld(c, weaponAngle, this.weapon, pullback, isDashBlade, weaponScale, weaponSideFlip);
+        // Yumi c=1 (arrow melee slash): draw just the arrow, not the bow
+        const weaponDrawMode = (this.weapon.name === 'Yumi' && this.comboCount === 1 &&
+            ['LIGHT_WINDUP','LIGHT_SLASH','LIGHT_RECOVER','LIGHT_WAIT','LIGHT_RETURN'].includes(this.state))
+            ? 1 : 0;
+        drawWeaponHeld(c, weaponAngle, this.weapon, pullback, isDashBlade, weaponScale, weaponSideFlip, weaponDrawMode);
         c.restore();
 
         // Layer 2: Ground shadow 
@@ -4494,7 +4576,7 @@ class Enemy {
             const perpY =  dx / dist;
 
             // Tight engagement: orbit just outside contact so they graze the player
-            const desiredDist = 28 + Math.random() * 12;
+            const desiredDist = 5;
             let radial = 0;
             if (dist > desiredDist + 12)       radial =  0.70; // step in hard
             else if (dist < desiredDist - 10)  radial = -0.50; // step back slightly
@@ -6288,6 +6370,332 @@ class FukiyaDart {
             c.lineTo(-22 - i * 6, yOff);
             c.lineWidth   = 0.5 * alpha;
             c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.18})`;
+            c.stroke();
+        }
+
+        c.restore();
+    }
+}
+
+// YUMI ARROW SLASH, c=1 melee: close-range arc sweep with arrow held as blade
+class YumiArrowSlash {
+    constructor(x, y, angle, fromSide) {
+        this.x        = x; this.y = y;
+        this.angle    = angle;
+        this.fromSide = fromSide;
+        this.life     = 18;
+        this.maxLife  = 18;
+    }
+    update() { this.life--; }
+    draw(c) {
+        if (this.life <= 0) return;
+        const alpha = this.life / this.maxLife;
+        const [ri, gi, bi] = WEAPONS.Yumi.slashRGB;
+        const range   = WEAPONS.Yumi.range * 0.42;
+        const halfArc = Math.PI / 2.0;
+        const startA  = -halfArc;
+        const endA    =  halfArc;
+
+        c.save();
+        c.translate(this.x, this.y);
+        c.rotate(this.angle);
+        c.lineCap = 'round';
+
+        // Soft bloom wedge
+        const bloomG = c.createRadialGradient(0, 0, range * 0.08, 0, 0, range * 1.05);
+        bloomG.addColorStop(0, `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.12})`);
+        bloomG.addColorStop(1, `rgba(${ri}, ${gi}, ${bi}, 0)`);
+        c.beginPath();
+        c.moveTo(0, 0);
+        c.arc(0, 0, range * 1.05, startA, endA);
+        c.closePath();
+        c.fillStyle = bloomG;
+        c.fill();
+
+        // Main slash arc (calligraphic, like LightSlash but shorter — arrow-range)
+        const segs = 12;
+        for (let i = 0; i < segs; i++) {
+            const t0  = i / segs;
+            const t1  = (i + 1) / segs;
+            const a0  = startA + t0 * (endA - startA);
+            const a1  = startA + t1 * (endA - startA);
+            const mid = Math.sin(((t0 + t1) / 2) * Math.PI);
+            const jitter = 1 + Math.sin(i * 6.8 + this.maxLife * 0.4) * 0.10;
+            const sw  = Math.max(range * 0.10 * mid * alpha * jitter, 0.4);
+            c.beginPath();
+            c.arc(0, 0, range, a0, a1);
+            c.lineWidth   = sw;
+            c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.88})`;
+            c.stroke();
+        }
+
+        // Arrow shaft trace along the sweep path (distinctive arrow-slash feel)
+        c.beginPath();
+        c.arc(0, 0, range * 0.92, startA + 0.06, endA - 0.06);
+        c.lineWidth   = 1.6 * alpha;
+        c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha})`;
+        c.stroke();
+
+        // Arrowhead flash at the tip of the sweep
+        const tipA = -this.fromSide * halfArc;
+        const tx2  = Math.cos(tipA) * range;
+        const ty2  = Math.sin(tipA) * range;
+        // Arrow tip triangle
+        const headDir = tipA + this.fromSide * Math.PI / 2; // perp to arc at tip
+        c.beginPath();
+        c.moveTo(tx2, ty2);
+        c.lineTo(tx2 + Math.cos(headDir - 0.5) * 7 * alpha, ty2 + Math.sin(headDir - 0.5) * 7 * alpha);
+        c.lineTo(tx2 + Math.cos(headDir + 0.5) * 7 * alpha, ty2 + Math.sin(headDir + 0.5) * 7 * alpha);
+        c.closePath();
+        c.fillStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.78})`;
+        c.fill();
+
+        // Ink bead at each end
+        [startA, endA].forEach(ta => {
+            const ex = Math.cos(ta) * range;
+            const ey = Math.sin(ta) * range;
+            c.beginPath();
+            c.arc(ex, ey, 2.0 * alpha, 0, Math.PI * 2);
+            c.fillStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.60})`;
+            c.fill();
+        });
+
+        // Flash burst at start of sweep
+        if (alpha > 0.78) {
+            const flash = (alpha - 0.78) / 0.22;
+            const fx2 = Math.cos(-this.fromSide * halfArc) * range * 0.45;
+            const fy2 = Math.sin(-this.fromSide * halfArc) * range * 0.45;
+            c.beginPath();
+            c.arc(fx2, fy2, range * 0.12, 0, Math.PI * 2);
+            c.fillStyle = `rgba(${Math.min(ri+55,215)}, ${Math.min(gi+48,185)}, ${Math.min(bi+38,160)}, ${flash * 0.50})`;
+            c.fill();
+        }
+
+        c.restore();
+    }
+}
+
+// FUKIYA BONK, tube smack: short-range overhead melee arc with the blowgun
+class FukiyaBonk {
+    constructor(x, y, angle, fromSide) {
+        this.x        = x; this.y = y;
+        this.angle    = angle;
+        this.fromSide = fromSide;
+        this.life     = 16;
+        this.maxLife  = 16;
+    }
+    update() { this.life--; }
+    draw(c) {
+        if (this.life <= 0) return;
+        const alpha = this.life / this.maxLife;
+        const [ri, gi, bi] = WEAPONS.Fukiya.slashRGB;
+        const range  = WEAPONS.Fukiya.range * 0.34;  // short range — it's a bonk!
+        const halfArc = Math.PI / 2.4;
+
+        c.save();
+        c.translate(this.x, this.y);
+        c.rotate(this.angle);
+        c.lineCap = 'round';
+
+        // Small but punchy bloom
+        const bloomG = c.createRadialGradient(0, 0, range * 0.05, 0, 0, range * 1.2);
+        bloomG.addColorStop(0, `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.16})`);
+        bloomG.addColorStop(1, `rgba(${ri}, ${gi}, ${bi}, 0)`);
+        c.beginPath();
+        c.moveTo(0, 0);
+        c.arc(0, 0, range * 1.2, -halfArc, halfArc);
+        c.closePath();
+        c.fillStyle = bloomG;
+        c.fill();
+
+        // Heavy impact arc (tube is blunt, so a chunkier stroke)
+        const segs = 10;
+        for (let i = 0; i < segs; i++) {
+            const t0  = i / segs;
+            const t1  = (i + 1) / segs;
+            const a0  = -halfArc + t0 * halfArc * 2;
+            const a1  = -halfArc + t1 * halfArc * 2;
+            const mid = Math.sin(((t0 + t1) / 2) * Math.PI);
+            c.beginPath();
+            c.arc(0, 0, range, a0, a1);
+            c.lineWidth   = Math.max(range * 0.18 * mid * alpha, 0.4);
+            c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.85})`;
+            c.stroke();
+        }
+
+        // Blunt impact edge
+        c.beginPath();
+        c.arc(0, 0, range * 0.90, -halfArc + 0.06, halfArc - 0.06);
+        c.lineWidth   = 2.0 * alpha;
+        c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha})`;
+        c.stroke();
+
+        // Expanding impact ring (blunt-force feel)
+        const ringSz = range * (0.55 + (1 - alpha) * 0.55);
+        c.beginPath();
+        c.arc(0, 0, ringSz, -halfArc, halfArc);
+        c.lineWidth   = 4 * alpha * alpha;
+        c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.22})`;
+        c.stroke();
+
+        // Impact spikes (bonk radiates short bursts)
+        for (let s = 0; s < 4; s++) {
+            const sa   = -halfArc + (s / 3) * halfArc * 2;
+            const sLen = range * (0.12 + (s % 2) * 0.08) * alpha;
+            c.beginPath();
+            c.moveTo(Math.cos(sa) * range * 0.88, Math.sin(sa) * range * 0.88);
+            c.lineTo(Math.cos(sa) * (range * 0.88 + sLen), Math.sin(sa) * (range * 0.88 + sLen));
+            c.lineWidth   = (2.2 - s * 0.18) * alpha;
+            c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.60})`;
+            c.stroke();
+        }
+
+        // Flash at moment of bonk
+        if (alpha > 0.82) {
+            const f = (alpha - 0.82) / 0.18;
+            c.beginPath();
+            c.arc(0, 0, range * 0.28, 0, Math.PI * 2);
+            c.fillStyle = `rgba(${Math.min(ri+45,205)}, ${Math.min(gi+38,178)}, ${Math.min(bi+28,150)}, ${f * 0.45})`;
+            c.fill();
+        }
+
+        c.restore();
+    }
+}
+
+// FUKIYA CHARGED DART, deep-breath supercharged shot: bigger, faster, deadlier
+class FukiyaChargedDart {
+    constructor(x, y, angle, damage, knockback) {
+        this.x         = x; this.y = y;
+        this.angle     = angle;
+        this.damage    = damage;
+        this.knockback = knockback;
+        this.speed     = 30;     // much faster than normal dart (22)
+        this.life      = 55;
+        this.maxLife   = 55;
+        this.hit       = false;
+        this.hitX      = 0; this.hitY = 0;
+        this.hitLife   = 18;
+        // Breath charge ring, expands briefly at spawn
+        this.chargeRing = 1.0;
+    }
+    update() {
+        this.life--;
+        this.chargeRing = Math.max(0, this.chargeRing - 0.10);
+        if (this.hit) { this.hitLife--; return; }
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const e    = enemies[i];
+            const dist = Math.hypot(e.x - this.x, e.y - this.y);
+            if (dist <= e.radius + 10) {
+                this.hit   = true;
+                this.hitX  = this.x; this.hitY = this.y;
+                this.hitLife = 18;
+                e.hit(this.damage, this.angle, this.knockback);
+                spawnParticles(e.x, e.y, 'ink-red', 12);
+                if (e.hp <= 0) {
+                    spawnParticles(e.x, e.y, 'ink-red', 22);
+                    enemies.splice(i, 1);
+                    rebalanceRoles();
+                }
+                if (enemies.length === 0) setTimeout(triggerWeaponDrop, 1000);
+                break;
+            }
+        }
+    }
+    draw(c) {
+        if (this.life <= 0) return;
+        const [ri, gi, bi] = WEAPONS.Fukiya.slashRGB;
+
+        if (this.hit) {
+            // Big impact burst (much more dramatic than normal dart)
+            const alpha = Math.max(0, this.hitLife / 18);
+            if (alpha <= 0) return;
+            c.save();
+            c.translate(this.hitX, this.hitY);
+            c.lineCap = 'round';
+            // Expanding shockwave ring
+            const shockR = 12 + (1 - alpha) * 28;
+            c.beginPath();
+            c.arc(0, 0, shockR, 0, Math.PI * 2);
+            c.lineWidth   = 3.5 * alpha;
+            c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.55})`;
+            c.stroke();
+            // Burst spokes
+            for (let i = 0; i < 7; i++) {
+                const a   = (i / 7) * Math.PI * 2 + this.angle;
+                const len = 10 + i * 3.5;
+                c.beginPath();
+                c.moveTo(0, 0);
+                c.lineTo(Math.cos(a) * len * alpha, Math.sin(a) * len * alpha);
+                c.lineWidth   = (2.5 - i * 0.18) * alpha;
+                c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.80})`;
+                c.stroke();
+            }
+            c.beginPath();
+            c.arc(0, 0, Math.max(0.01, 5.5 * alpha), 0, Math.PI * 2);
+            c.fillStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.70})`;
+            c.fill();
+            c.restore();
+            return;
+        }
+
+        const alpha = Math.min(1, this.life / 10);
+        c.save();
+        c.translate(this.x, this.y);
+        c.rotate(this.angle);
+        c.lineCap = 'round';
+
+        // Breath charge ring (dissipates quickly after launch)
+        if (this.chargeRing > 0) {
+            const cr = this.chargeRing;
+            c.beginPath();
+            c.arc(0, 0, 14 + (1 - cr) * 12, 0, Math.PI * 2);
+            c.lineWidth   = 2.5 * cr;
+            c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${cr * 0.35})`;
+            c.stroke();
+        }
+
+        // Longer, thicker dart shaft (more visual weight than normal dart)
+        c.beginPath();
+        c.moveTo(-18, 0);
+        c.lineTo(10, 0);
+        c.lineWidth   = 2.0 * alpha;
+        c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.92})`;
+        c.stroke();
+
+        // Larger needle tip
+        c.beginPath();
+        c.moveTo(10, 0);
+        c.lineTo(18, 0);
+        c.lineWidth   = 1.2 * alpha;
+        c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.98})`;
+        c.stroke();
+
+        // Bigger cone tuft (shows the deep breath)
+        c.beginPath();
+        c.moveTo(-18, -4.5); c.lineTo(-24, 0); c.lineTo(-18, 4.5);
+        c.lineWidth   = 1.4 * alpha;
+        c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.60})`;
+        c.stroke();
+        // Second tuft layer
+        c.beginPath();
+        c.moveTo(-16, -3); c.lineTo(-20, 0); c.lineTo(-16, 3);
+        c.lineWidth   = 1.0 * alpha;
+        c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * 0.38})`;
+        c.stroke();
+
+        // Longer speed streaks (showing extreme velocity)
+        for (let i = 0; i < 4; i++) {
+            const yOff = (i - 1.5) * 3.5;
+            const xLen = 12 + i * 6;
+            c.beginPath();
+            c.moveTo(-20 - i * 6, yOff);
+            c.lineTo(-20 - i * 6 - xLen, yOff);
+            c.lineWidth   = 0.8 * alpha;
+            c.strokeStyle = `rgba(${ri}, ${gi}, ${bi}, ${alpha * (0.30 - i * 0.05)})`;
             c.stroke();
         }
 
