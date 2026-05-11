@@ -782,7 +782,6 @@ function updateScrollScene() {
         sc.fadeA  = 1 - Math.pow(1 - t, 2);
         if (sc.timer >= 44) {
             scrollScene = null;
-            gameState   = 'PLAYING';
             initGame();
         }
     }
@@ -1678,7 +1677,7 @@ class SRStrip {
 }
 
 // SAKURA ROLL Orchestrator
-function initSakuraRoll(chosenWeapon) {
+function initSakuraRoll(chosenWeapon, onComplete) {
     const allW = [WEAPONS.Katana, WEAPONS.Naginata, WEAPONS.Kanabo, WEAPONS.Odachi];
     // Shuffle others; place chosen at a central slot (1 or 2) for good visual landing
     const others    = allW.filter(w => w !== chosenWeapon).sort(() => Math.random() - 0.5);
@@ -1702,6 +1701,7 @@ function initSakuraRoll(chosenWeapon) {
 
     sakuraRoll = {
         chosenWeapon,
+        onComplete: onComplete || (() => nextWave()),
         phase:    'TRANSITION',
         timer:    SR.TRANSITION,
         overlayA: 0,
@@ -1774,10 +1774,11 @@ function updateSakuraRoll() {
         case 'FADEOUT': {
             sr.fadeA = 1 - sr.timer / SR.FADEOUT;
             if (sr.timer <= 0) {
-                const w = sr.chosenWeapon;
-                sakuraRoll = null;
-                player.weapon = w;
-                nextWave();
+                const w          = sr.chosenWeapon;
+                const onComplete = sr.onComplete;
+                sakuraRoll       = null;
+                player.weapon    = w;
+                onComplete();
             }
             break;
         }
@@ -6832,7 +6833,28 @@ function initGame() {
     trails    = [];
     currentWave = 1;
     updateHUD();
-    startWave();
+    triggerInitialWeaponRoll();
+}
+
+function triggerInitialWeaponRoll() {
+    gameState = 'SAKURA_ROLL';
+
+    // Same probability table as post-wave drops
+    const r = Math.random();
+    let newWeapon;
+    if      (r < 0.16) newWeapon = WEAPONS.Katana;   // 16%
+    else if (r < 0.30) newWeapon = WEAPONS.Naginata; // 14%
+    else if (r < 0.43) newWeapon = WEAPONS.Kanabo;   // 13%
+    else if (r < 0.56) newWeapon = WEAPONS.Odachi;   // 13%
+    else if (r < 0.68) newWeapon = WEAPONS.Kama;     // 12%
+    else if (r < 0.80) newWeapon = WEAPONS.Yumi;     // 12%
+    else if (r < 0.90) newWeapon = WEAPONS.Sasumata; // 10%
+    else                newWeapon = WEAPONS.Fukiya;  // 10%
+
+    initSakuraRoll(newWeapon, () => {
+        updateHUD();   // refresh weapon display after roll result is applied
+        startWave();   // wave 1 — no increment
+    });
 }
 
 function startWave() {
@@ -7111,9 +7133,8 @@ startBtn.addEventListener('click', () => {
         gameState = 'SCROLL';
         initScrollScene();
     } else {
-        // Subsequent runs jump straight into the game
+        // Subsequent runs: skip scroll but still do the initial weapon roll
         scrollScene = null;
-        gameState   = 'PLAYING';
         initGame();
     }
 });
